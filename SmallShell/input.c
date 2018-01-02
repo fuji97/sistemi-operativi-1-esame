@@ -10,7 +10,7 @@ static char inpbuf[MAXBUF], tokbuf[2*MAXBUF],
 nei comandi */
 
 static char special[]=
-	{' ', '\t', '&', ';', '\n', '\0'};
+	{' ', '\t', '&', ';', '\n', '>', '\0'};
 
 int userin(char *p)		/* stampa il prompt e legge una riga */
 {
@@ -85,6 +85,14 @@ int gettok(char **outptr)	/* legge un simbolo e lo mette in tokbuf */
       type = AMPERSAND; break;
     case ';':
       type = SEMICOLON; break;
+    case '>':
+      if (*ptr++ == '>') {
+        type = DOUBLE_ARROW;
+      } else {
+        type = ARROW;
+        ptr--;
+      }
+      break;
     default:
       type = ARG;
       /* copia gli altri caratteri del simbolo */
