@@ -3,9 +3,11 @@
 #include <stdlib.h>
 #include <semaphore.h>
 
-#define N_SAVAGES 8
-#define N_PORTIONS 12
-#define N_CYCLES 10
+#define N_SAVAGES 7
+#define N_PORTIONS 3
+#define N_CYCLES 14
+
+/* Distruggere i semafori */
 
 int portions = 0;
 int waitingSavages[N_SAVAGES];
@@ -14,8 +16,41 @@ sem_t portions_mutex;
 sem_t savages_mutex[N_SAVAGES];
 sem_t empty_mutex;
 sem_t full_mutex;
+sem_t manager_mutex;
 pthread_t savage[N_SAVAGES];
 pthread_t cook;
+pthread_t manager;
+
+
+void* manager_body(void *args) {
+    int activeThreads = 1;
+    int i = 0;
+    while (activeThreads != 2) {
+        sem_wait(&manager_mutex);
+        for (i = 0; 1; i++) {
+            if (i > N_SAVAGES-1) {
+                if (activeThreads != 0) {
+                    printf("Manager - Tutti gli altri servitori terminati\n");
+                    activeThreads = 2;
+                    break;
+                } else {
+                    i = 0;
+                    activeThreads = 1;
+                }
+            } 
+            if (waitingSavages[i] != 2) {
+                activeThreads = 0;
+            }
+            
+            if (waitingSavages[i] == 1) {
+                sem_post(&savages_mutex[i]);
+                printf("Risvegliato servitore [%d]\n", i);
+                break;
+            }
+        }
+    }
+    pthread_exit(0);
+}
 
 void think(int id) {
     int i;
@@ -25,7 +60,7 @@ void think(int id) {
         printf("[%2d] Guerriero - Pensando\n", id);
     }
     
-    for (i = 0; i < 70000000 + 10000000 * id; i++);
+    for (i = 0; i < 30000000 + 50000000 * id; i++);
 }
 
 void eat(int id) {
@@ -42,7 +77,7 @@ void* savages_body(void* args) {
     int id;
     int i;
     int cycles;
-    int activeThreads;
+    /* int activeThreads; */
     
     id = *(int*)args;
     printf("ID del selvaggio: %d\n", id);
@@ -66,35 +101,8 @@ void* savages_body(void* args) {
             printf("%d ", waitingSavages[i]);
         }
         printf("]\n");
-        activeThreads = 1;
-        for (i = 0; 1; i++) {
-            if (i > N_SAVAGES-1) {
-                /*printf("[%2d] Reset ciclo %d\n", id, i);*/
-                if (activeThreads != 0) {
-                    printf("[%2d] Servitore - Tutti gli altri servitori terminati\n", id);
-                    break;
-                } else {
-                    i = 0;
-                    activeThreads = 1;
-                }
-            } 
-            if (waitingSavages[i] != 2 && i != id) {
-                activeThreads = 0;
-                /*printf("[%2d] - Impostato activeThreads a 0 nel ciclo %d", id, i);
-                printf(" [");
-                for (i = 0; i < N_SAVAGES; i++) {
-                    printf("%d ", waitingSavages[i]);
-                }
-                printf("]\n- ");*/
-            }
-            
-            if (waitingSavages[i] == 1) {
-                sem_post(&savages_mutex[i]);
-                printf("[%2d] Risvegliato servitore [%d]\n", id, i);
-                break;
-            }
-        }
         printf("[%2d] Ciclo terminato - cicli: %d/%d\n", id, cycles+1, N_CYCLES);
+        sem_post(&manager_mutex);
     }
     
     waitingSavages[id] = 2;
@@ -125,11 +133,12 @@ int main() {
     
     /* Inizializzazione */
     savagesTerminated = 0;
-    sem_init(&portions_mutex, 0, 0);
-    sem_init(&empty_mutex, 0, 0);
-    sem_init(&full_mutex, 0, 0);
+    sem_init(&portions_mutex, 0, 1);
+    sem_init(&empty_mutex, 0, 1);
+    sem_init(&full_mutex, 0, 1);
+    sem_init(&manager_mutex, 0, 1);
     for (i = 0; i < N_SAVAGES; i++) {
-        sem_init(&savages_mutex[i], 0, 0);
+        sem_init(&savages_mutex[i], 0, 1);
         waitingSavages[i] = 0;
     }
     
@@ -147,14 +156,9 @@ int main() {
         }
     }
     
-    /* Wake the first thread */
-    for (i = 0; 1; i++) {
-        if (i >= N_SAVAGES) i = 0;
-        if (waitingSavages[i] == 1) {
-            printf("[MAIN] Risvegliato il selvaggio %d\n", i);
-            sem_post(&savages_mutex[i]);
-            break;
-        }
+    /* Avvia manager */
+    if (pthread_create(&manager, NULL, manager_body, NULL) != 0) {
+        fprintf(stderr, "Errore nella creazione del manager\n");
     }
     
     for (i = 0; i < N_SAVAGES; i++) {

@@ -18,9 +18,9 @@
 #define	FOREGROUND 0
 #define	BACKGROUND 1
 
-#define STANDARD_OUTPUT 10
-#define NEW_FILE 11
-#define APPEND_FILE 12
+#define STANDARD_OUTPUT 10  /* Tipo di redirect di default, il terminale */
+#define NEW_FILE 11         /* Tipo di redirect su nuovo file: '>' */
+#define APPEND_FILE 12      /* Tipo di redirect append su file esistente '>>' */
 
 int inarg(char c);		/* verifica se c non e' un carattere speciale */
 
@@ -33,5 +33,3 @@ int procline();			/* tratta una riga di input */
 void runcommand(char **cline,int where, int redirectType, char* filePath);	/* esegue un comando */
 
 void killMessage(int sig);     /* Stampa un messaggio di avviso */
-
-void shiftBackElements(char ** array);

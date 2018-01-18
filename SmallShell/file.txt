@@ -1,0 +1,12 @@
+*.c.o
+README
+background.jpg
+esercizio.html
+file.txt
+input.c
+input.o
+makefile
+smallsh
+smallsh.c
+smallsh.h
+smallsh.o

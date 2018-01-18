@@ -9,7 +9,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-char *prompt = "Dare un comando >";
+char *prompt = "Dare un comando>";
 int bgProcess = 0;
 struct sigaction sigStruct;
 
@@ -19,9 +19,9 @@ int procline(void) 	/* tratta una riga di input */
     int toktype;  	/* tipo del simbolo nel comando */
     int narg;		/* numero di argomenti considerati finora */
     int type;		/* FOREGROUND o BACKGROUND */
-    int redirectType = STANDARD_OUTPUT;
-    char * filePath = NULL;
-    int porco;      /* TODO - DELETE THIS SHIT */
+    int redirectType = STANDARD_OUTPUT; /* Tipo di redirect da applicare al
+                                            comando in corso */
+    char * filePath = NULL; /* Percorso del file su cui effettuare il redirect */
     
     narg=0;
 
@@ -35,9 +35,12 @@ int procline(void) 	/* tratta una riga di input */
 	
         /* se argomento: passa al prossimo simbolo */
         case ARG:
+            /* Verifica se il tipo di redirect è diverso dallo standard output e
+                se il percorso del file su cui fare il redirect è NULL.
+                Se la condizione è rispettata allora imposta l'argomento attuale
+                come file su cui fare il redirect e non incrementa narg */
 		    if (redirectType != STANDARD_OUTPUT && filePath == NULL) {
                 filePath = arg[narg];
-                printf("File path: %s\n", filePath);
                 break;
 		    }
 		    
@@ -53,17 +56,15 @@ int procline(void) 	/* tratta una riga di input */
             type = (toktype == AMPERSAND) ? BACKGROUND : FOREGROUND;
       
             if (narg != 0) {
+                /* Verifica se il tipo di redirect è diverso dallo standard output e
+                se il percorso del file su cui fare il redirect è NULL.
+                Se la condizione è rispettata allora ritorna avvisando che non
+                è stato impostato il file su cui fare il redirect. */
                 if (redirectType != STANDARD_OUTPUT && filePath == NULL) {
                     printf("File di destinazione del redirezionamento assente\n");
                     return 0;
                 }
                 arg[narg] = NULL;
-                printf("Lancio comandi:\n");
-                
-                for (porco = 0; porco < narg; porco++) {
-                    printf("%s ", arg[porco]);
-                }
-                printf("\n");
                 runcommand(arg, type, redirectType, filePath);
             }
       
@@ -72,7 +73,9 @@ int procline(void) 	/* tratta una riga di input */
             if (toktype == EOL) return 1;
             
             /* altrimenti (caso del comando terminato da ';' o '&') 
-                bisogna ricominciare a riempire arg dall'indice 0 */
+                bisogna ricominciare a riempire arg dall'indice 0,
+                viene reimpostato anche il tipo di redirect allo standard output
+                e il percorso del file di redirect a NULL */
             
             narg = 0;
             redirectType = STANDARD_OUTPUT;
@@ -80,7 +83,8 @@ int procline(void) 	/* tratta una riga di input */
             break;
         case ARROW:
         case DOUBLE_ARROW:
-            printf("Trovato redirect\n");
+            /* Se il simbolo è '>' o '>>', allora imposta il tipo di redirect 
+                a, rispettivamente, new_file o append */
             redirectType = (toktype == ARROW) ? NEW_FILE : APPEND_FILE;
             break;
         }
@@ -93,7 +97,6 @@ void runcommand(char **cline, int where, int redirectType, char* filePath)	/* es
     int exitstat, ret, i;
     int fd;
 
-    printf("Runcommand with filePath: %s\n", filePath);
     pid = fork();
     if (pid == (pid_t) -1) {
         perror("smallsh: fork fallita");
@@ -109,8 +112,20 @@ void runcommand(char **cline, int where, int redirectType, char* filePath)	/* es
         if (where == BACKGROUND) {
             sigStruct.sa_handler = SIG_IGN;
             sigaction(SIGINT, &sigStruct, NULL);
+        } else {
+            /* Inizializzo la gestione dei segnali */
+            sigStruct.sa_handler = killMessage;
+            sigemptyset(&sigStruct.sa_mask);
+            sigStruct.sa_flags = 0;
+            sigaction(SIGINT, &sigStruct, NULL);
         }
         
+        /* Se il tipo di redirect è diverso dallo standard output, allora
+        creo un nuovo file 'fd' con nome 'filePath' e coi permessi 'NEW_FILE_PERMISSIONS'
+        se il tipo di redirect è NEW_FILE.
+        Altrimenti apro il file 'filePath' in sola scrittura e in append,
+        se non esiste lo crea con i permessi 'NEW_FILE_PERMISSIONS', e lo assegna
+        a 'fd' */
         if (redirectType != STANDARD_OUTPUT) {
             if (redirectType == NEW_FILE) {
                 fd = creat(filePath, NEW_FILE_PERMISSIONS);
@@ -119,9 +134,12 @@ void runcommand(char **cline, int where, int redirectType, char* filePath)	/* es
             }
             /* TODO Controllare che il controllo funzioni! */
             if (fd < 0) {
-                perror("open");
+                fprintf(stderr, "Impossibile impostare il file '%s' come redirect: ", filePath);
+                perror("");
                 exit(1);
             }
+            /* Imposta dup2 in modo da fare il redirect dello standard output
+                su 'fd' */
             dup2(fd, STDOUT_FILENO);
         }
     
@@ -129,11 +147,7 @@ void runcommand(char **cline, int where, int redirectType, char* filePath)	/* es
         perror(*cline);
         
         
-        /* Provo a fare il flush 
-        if (redirectType != STANDARD_OUTPUT) {
-            fflush(stdout);
-        }
-        */
+        /* Chiudo il file 'fd' */
         if (redirectType != STANDARD_OUTPUT) {
             if (close(fd) != 0) {
                 perror("close");
@@ -152,6 +166,7 @@ void runcommand(char **cline, int where, int redirectType, char* filePath)	/* es
         sigStruct.sa_handler = SIG_IGN;
         sigaction(SIGINT, &sigStruct, NULL);
         
+        /* Aspetto che termina il processo figlio */
         ret = waitpid(pid, &exitstat, 0);
         if (ret == -1)
             perror("wait");
@@ -160,10 +175,15 @@ void runcommand(char **cline, int where, int redirectType, char* filePath)	/* es
         sigStruct.sa_handler = killMessage;
         sigaction(SIGINT, &sigStruct, NULL);
     } else {
+        /* Se da eseguire in BACKGROUND, allora incremento il numero dei
+            processi figli in esecuzione */
         bgProcess++;
-        printf("[%5d] - Processo avviato in background\n", pid);
     }
     
+    /* Per ogni processo figlio in esecuzione, chiamo in waitpid con PID
+        generico (-1), se il valore ritornato è maggiore di 0 allora processo
+        è terminato e posso controllare se è uscito normalmente (WIFEXITED' o
+        forzatamente 'WIFSIGNALED' */
     for (i = bgProcess; i > 0; i--) {
         ret = waitpid(-1, &exitstat, WNOHANG);
         if (ret > 0) {
@@ -178,6 +198,11 @@ void runcommand(char **cline, int where, int redirectType, char* filePath)	/* es
     }
 }
 
+/* Metodo chiamato quando viene generato un segnale di tipo SIGINT */
+void killMessage(int sig) {
+    printf("\nSIGINT Ricevuto - Interruzione.\n");
+}
+
 int main() {
     /* Inizializzo la gestione dei segnali */
     sigStruct.sa_handler = killMessage;
@@ -189,15 +214,4 @@ int main() {
         procline();
         
     return 0;
-}
-
-void killMessage(int sig) {
-    printf("\nSIGINT Ricevuto - Interruzione.\n");
-}
-
-void shiftBackElements(char ** array) {
-    char ** pointer = array;
-    while (pointer != NULL) {
-        /* pointer = ++pointer; DISABLED */
-    }
 }
