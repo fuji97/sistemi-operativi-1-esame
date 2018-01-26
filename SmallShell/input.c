@@ -86,6 +86,9 @@ int gettok(char **outptr)	/* legge un simbolo e lo mette in tokbuf */
     case ';':
       type = SEMICOLON; break;
     case '>':
+      /* Se è '>', allora verifica se subito dopo è presente in altro '>',
+      è importante ricordarsi di incrementare il puntatore del carattere in 
+      caso ci sia una seconda '>' in modo da non leggerla come nuovo simbolo */
       if (*ptr++ == '>') {
         type = DOUBLE_ARROW;
       } else {

@@ -3,6 +3,25 @@
 #include <stdlib.h>
 #include <semaphore.h>
 
+/* Versione estesa dell'esercizio dei selvaggi. Per risolvere il problema della
+sincronizzazione sono stati utilizzati dei semafori privati per ogni selvaggio
+e un manager, che viene risvegliato dal selvaggio al termine del suo ciclo, si
+occupa di scegliare quale tra i selvaggi in attesa svegliare per accedere alla
+pentola. Per gestire gli stati di ogni selvaggio si è scelto di usare un array
+di interi (si poteva fare anche con una lista, ma sarebbe diventato più pesante 
+e complicato) dove ogni elemento dell'array corrisponde al relativo selvaggio
+con lo stesso indice. Gli stati sono:
+ 0 - Attivo: Il selvaggio non è in attesa di mangiare
+ 1 - Attesa: Il selvaggio è in attesa di mangiare
+ 2 - Terminato: Il selvaggio ha terminato i suoi cicli e quindi si è terminato
+Il manager continua a scorrere l'array di stati fino a quando tutti i selvaggi
+sono in stato 2 o fino a quando non ne trova uno in attesa (1), a quel punto lo
+risveglia e si mette in attesa che il selvaggio lo risvegli.
+In quanto il manager può svegliare uno e un solo selvaggio alla volta, non è
+necessario usare un mutex per acceso esclusivo alla pentola.
+I selvaggi vengono suddivisi tra Guerrieri e Servitori a seconda del loro ID,
+se sono minori della metà allora sono Guerrieri, altrimenti sono Servitori */
+
 /* Variabili linea di comando */
 int N_SAVAGES;
 int N_PORTIONS;
@@ -36,7 +55,7 @@ void* manager_body(void *args) {
                 non ancora terminato, allora vuol dire che tutti i selvaggi sono
                 terminati e si termina anche il manager */
                 if (activeThreads != 0) {
-                    printf("[Manager] Tutti i servitori terminati - termino\n");
+                    printf("[Manager] Tutti i selvaggi terminati - termino\n");
                     activeThreads = 2;
                     break;
                 } else {
@@ -52,6 +71,9 @@ void* manager_body(void *args) {
             e il manager termina il ciclo interno */
             if (waitingSavages[i] == 1) {
                 printf("[Manager] Risvegliato servitore [%d]\n", i);
+                /* Prima di svegliarlo, imposta il suo stato a 0, in modo da
+                evitare possibili problemi di race condition */
+                waitingSavages[i] = 0;
                 sem_post(&savages_sem[i]);
                 break;
             }
@@ -76,7 +98,7 @@ void think(int id) {
     int i;
     printf("[%2d] - %s - Non ha fame\n", id, savageType(id));
     
-    for (i = 0; i < 30000000 + 50000000 * id; i++);
+    for (i = 0; i < 100000000 + 20000000 * id; i++);
 }
 
 /* Il selvaggio mangia */
@@ -104,8 +126,6 @@ void* savages_body(void* args) {
         sul proprio semaforo privato */
         waitingSavages[id] = 1;
         sem_wait(&savages_sem[id]);
-        /* Quando viene svegliato re-imposta il suo stato a 0 e mangia */
-        waitingSavages[id] = 0;
         /* Se non ci sono più porzioni, sveglia il cuoco ed aspetta che finisca */
         if (portions == 0) {
             printf("[%2d] - %s - Porzioni terminate, risveglio il cuoco\n", id, savageType(id));
@@ -165,7 +185,7 @@ int main(int argc, char* argv[]) {
     
     /* Lettura argomenti */
     if (argc != 4) {
-        printf("Argomenti della linea di comando invalidi\n");
+        printf("Argomenti dalla linea di comando errati\n");
         return 0;
     }
     
@@ -174,6 +194,7 @@ int main(int argc, char* argv[]) {
     N_SAVAGES = atoi(argv[1]);
     N_PORTIONS = atoi(argv[2]);
     N_CYCLES = atoi(argv[3]);
+    printf("Numero selvaggi: %d\nNumero porzioni: %d\nNumero cicli: %d\n", N_SAVAGES, N_PORTIONS, N_CYCLES);
     
     /* Inizializzazione delle variabili e dei semafori */
     savagesTerminated = 0;

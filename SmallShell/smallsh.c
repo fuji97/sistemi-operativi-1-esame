@@ -126,7 +126,7 @@ void runcommand(char **cline, int where, int redirectType, char* filePath)	/* es
             } else {
                 fd = open(filePath, O_WRONLY | O_APPEND | O_CREAT, NEW_FILE_PERMISSIONS);
             }
-            /* TODO Controllare che il controllo funzioni! */
+
             if (fd < 0) {
                 fprintf(stderr, "Impossibile impostare il file '%s' come redirect: ", filePath);
                 perror("");
@@ -167,10 +167,11 @@ void runcommand(char **cline, int where, int redirectType, char* filePath)	/* es
         sigaction(SIGINT, &sigStruct, NULL);
     }
     
-    /* Per ogni processo figlio in esecuzione, chiamo in waitpid con PID
-        generico (-1), se il valore ritornato è maggiore di 0 allora processo
+    /* Eseguo un ciclo sulla waitpid con PID -1 e WNOHANG,
+        se il valore ritornato è maggiore di 0 allora un processo figlio
         è terminato e posso controllare se è uscito normalmente (WIFEXITED' o
-        forzatamente 'WIFSIGNALED' */
+        forzatamente 'WIFSIGNALED'.
+        Rieseguo il ciclo ogni volta che il risultato di waitpid è maggiore di 0 */
     
     while ((ret = waitpid(-1, &exitstat, WNOHANG)) > 0) {
         printf("[%5d] Processo terminato ", ret);
