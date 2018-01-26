@@ -10,7 +10,6 @@
 #include <unistd.h>
 
 char *prompt = "Dare un comando>";
-int bgProcess = 0;
 struct sigaction sigStruct;
 
 int procline(void) 	/* tratta una riga di input */
@@ -94,7 +93,7 @@ int procline(void) 	/* tratta una riga di input */
 void runcommand(char **cline, int where, int redirectType, char* filePath)	/* esegue un comando */
 {
     pid_t pid;
-    int exitstat, ret, i;
+    int exitstat, ret;
     int fd;
 
     pid = fork();
@@ -112,13 +111,7 @@ void runcommand(char **cline, int where, int redirectType, char* filePath)	/* es
         if (where == BACKGROUND) {
             sigStruct.sa_handler = SIG_IGN;
             sigaction(SIGINT, &sigStruct, NULL);
-            printf("[%d] %d\n", bgProcess, getpid());
-        } else {
-            /* Inizializzo la gestione dei segnali */
-            sigStruct.sa_handler = killMessage;
-            sigemptyset(&sigStruct.sa_mask);
-            sigStruct.sa_flags = 0;
-            sigaction(SIGINT, &sigStruct, NULL);
+            printf("[%d] Avviato\n", getpid());
         }
         
         /* Se il tipo di redirect è diverso dallo standard output, allora
@@ -142,26 +135,21 @@ void runcommand(char **cline, int where, int redirectType, char* filePath)	/* es
             /* Imposta dup2 in modo da fare il redirect dello standard output
                 su 'fd' */
             dup2(fd, STDOUT_FILENO);
-        }
-    
-        execvp(*cline,cline);
-        perror(*cline);
-        
-        
-        /* Chiudo il file 'fd' */
-        if (redirectType != STANDARD_OUTPUT) {
+            
+            /* Chiudo il file */
             if (close(fd) != 0) {
                 perror("close");
             }
         }
+    
+        execvp(*cline,cline);
+        perror(*cline);
         
         exit(1);
     }
 
     /* processo padre: avendo messo exec e exit non serve "else" */
     
-    /* la seguente istruzione non tiene conto della possibilita'
-     di comandi in background  (where == BACKGROUND) */
     if (where == FOREGROUND) {
         /* Ignoro SIGINT sul padre se in foreground */
         sigStruct.sa_handler = SIG_IGN;
@@ -171,31 +159,25 @@ void runcommand(char **cline, int where, int redirectType, char* filePath)	/* es
         ret = waitpid(pid, &exitstat, 0);
         if (ret == -1)
             perror("wait");
+        if (WIFSIGNALED(exitstat))
+            printf("\nComando terminato forzatamente da un segnale.\n");
         
         /* Ripristino SIGINT al termine del comando */
         sigStruct.sa_handler = killMessage;
         sigaction(SIGINT, &sigStruct, NULL);
-    } else {
-        /* Se da eseguire in BACKGROUND, allora incremento il numero dei
-            processi figli in esecuzione */
-        bgProcess++;
     }
     
     /* Per ogni processo figlio in esecuzione, chiamo in waitpid con PID
         generico (-1), se il valore ritornato è maggiore di 0 allora processo
         è terminato e posso controllare se è uscito normalmente (WIFEXITED' o
         forzatamente 'WIFSIGNALED' */
-    for (i = bgProcess; i > 0; i--) {
-        ret = waitpid(-1, &exitstat, WNOHANG);
-        if (ret > 0) {
-            printf("[%5d] Processo terminato ", ret);
-            if (WIFEXITED(exitstat))
-                printf("correttamente.\n");
-            else if (WIFSIGNALED(exitstat))
-                printf("forzatamente.\n");
-                
-            bgProcess--;
-        }
+    
+    while ((ret = waitpid(-1, &exitstat, WNOHANG)) > 0) {
+        printf("[%5d] Processo terminato ", ret);
+        if (WIFEXITED(exitstat))
+            printf("correttamente.\n");
+        else if (WIFSIGNALED(exitstat))
+            printf("forzatamente da un segnale.\n");
     }
 }
 

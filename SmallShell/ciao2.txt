@@ -1,0 +1,20 @@
+*.c.o
+README
+background.jpg
+ciao.txt
+ciao2.txt
+esercizio.html
+file.txt
+input.c
+input.o
+makefile
+smallsh
+smallsh.c
+smallsh.h
+smallsh.o
+    PID TTY          TIME CMD
+   1198 pts/1    00:00:00 bash
+   1199 pts/1    00:00:00 bash
+   4086 pts/1    00:00:00 smallsh
+   4092 pts/1    00:00:00 ls <defunct>
+   4093 pts/1    00:00:00 ps
