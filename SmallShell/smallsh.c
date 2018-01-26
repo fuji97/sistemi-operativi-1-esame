@@ -112,6 +112,7 @@ void runcommand(char **cline, int where, int redirectType, char* filePath)	/* es
         if (where == BACKGROUND) {
             sigStruct.sa_handler = SIG_IGN;
             sigaction(SIGINT, &sigStruct, NULL);
+            printf("[%d] %d\n", bgProcess, getpid());
         } else {
             /* Inizializzo la gestione dei segnali */
             sigStruct.sa_handler = killMessage;

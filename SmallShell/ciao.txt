@@ -1,21 +1,14 @@
-*.c.o
-README
-background.jpg
-ciao.txt
-esercizio.html
-file.txt
-input.c
-input.o
-makefile
-smallsh
-smallsh.c
-smallsh.h
-smallsh.o
-    PID TTY          TIME CMD
-    724 pts/1    00:00:00 bash
-    725 pts/1    00:00:00 bash
-   1898 pts/1    00:00:00 smallsh
-   1914 pts/1    00:00:00 sleep
-   1915 pts/1    00:00:00 ls <defunct>
-   1916 pts/1    00:00:00 ps
-   1917 pts/1    00:00:00 ps
+total 216
+-rwxr-xr-x 1 ubuntu ubuntu 67292 Dec 31 02:34 *.c.o
+-rw-r--r-- 1 ubuntu ubuntu   406 Dec  5 14:35 README
+-rw-r--r-- 1 ubuntu ubuntu 86752 Dec  5 14:35 background.jpg
+-rw------- 1 ubuntu ubuntu     0 Jan 26 11:46 ciao.txt
+-rw-r--r-- 1 ubuntu ubuntu  1406 Dec  5 14:35 esercizio.html
+-rw------- 1 ubuntu ubuntu   115 Jan 16 17:13 file.txt
+-rw-r--r-- 1 ubuntu ubuntu  2419 Dec 29 18:25 input.c
+-rw-r--r-- 1 ubuntu ubuntu  3336 Jan 26 11:45 input.o
+-rw-r--r-- 1 ubuntu ubuntu   239 Jan  2 22:55 makefile
+-rwxr-xr-x 1 ubuntu ubuntu 13883 Jan 26 11:45 smallsh
+-rw-r--r-- 1 ubuntu ubuntu  7575 Jan 16 17:16 smallsh.c
+-rw-r--r-- 1 ubuntu ubuntu  1195 Jan 16 17:06 smallsh.h
+-rw-r--r-- 1 ubuntu ubuntu  5696 Jan 26 11:45 smallsh.o
